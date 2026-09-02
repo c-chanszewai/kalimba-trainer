@@ -236,16 +236,43 @@ let tapPos=0,tapLocal=-1,tapDurs=[];
 
 // ================= audio =================
 function ensureAudio(){if(!audio){audio=new (window.AudioContext||window.webkitAudioContext)();
-  master=audio.createDynamicsCompressor();master.connect(audio.destination);}}
+  master=audio.createDynamicsCompressor();master.connect(audio.destination);loadSamples();}}
 function freq(n){return 261.63*Math.pow(2,pitchVal(n)/12);}
-// Brighter, snappier kalimba-like pluck: additive partials, fast attack, pitch-dependent decay.
+
+// ---- real kalimba samples (recorded tines), pitch-shifted to play every note ----
+const SAMPLE_DEFS=[{f:261.63,url:'Tine-c4.m4a'},{f:523.25,url:'Tine-c5.m4a'},{f:1318.51,url:'Tine-e6.m4a'}];
+let samples=null,samplesTried=false;
+function bufOnsetGain(buf){const d=buf.getChannelData(0);let peak=0,onset=0;
+  for(let i=0;i<d.length;i++){const a=Math.abs(d[i]);if(a>peak)peak=a;}
+  const thr=Math.max(0.02,peak*0.06);
+  for(let i=0;i<d.length;i++){if(Math.abs(d[i])>thr){onset=i;break;}}
+  return {onset:Math.max(0,onset-Math.round(buf.sampleRate*0.005))/buf.sampleRate,
+          gain:peak>0?Math.min(4,0.9/peak):0.9};}
+function loadSamples(){if(samplesTried)return;samplesTried=true;
+  Promise.all(SAMPLE_DEFS.map(s=>fetch(s.url).then(r=>r.arrayBuffer()).then(b=>audio.decodeAudioData(b))
+    .then(buf=>Object.assign({f:s.f,buf:buf},bufOnsetGain(buf)))))
+    .then(list=>{samples=list;}).catch(()=>{samples=null;});}
+function pickSample(f){let best=samples[0],bd=1e9;for(const s of samples){const d=Math.abs(Math.log2(f/s.f));if(d<bd){bd=d;best=s;}}return best;}
+
 function pluck(n,t){const f=freq(n);
-  const dur=Math.max(0.28,0.9-(f-262)*0.0005);              // higher notes ring shorter
-  // [harmonic multiple, peak gain, decay seconds] — upper partials give the metallic brightness
+  if(samples&&samples.length){const s=pickSample(f);const rate=f/s.f;
+    const src=audio.createBufferSource();src.buffer=s.buf;src.playbackRate.value=rate;
+    const avail=(s.buf.duration-s.onset)/rate;                     // real seconds left in the sample
+    const ring=Math.min(avail,Math.max(1.2,2.6-(f-262)*0.0009));   // cap ring; higher notes shorter
+    const g=audio.createGain();
+    g.gain.setValueAtTime(s.gain,t);
+    g.gain.setValueAtTime(s.gain,t+Math.max(0.02,ring-0.18));
+    g.gain.exponentialRampToValueAtTime(0.0006,t+ring);            // gentle release, no click
+    src.connect(g).connect(master);src.start(t,s.onset);src.stop(t+ring+0.03);return;}
+  synthPluck(n,t);}
+
+// synth fallback — used until samples finish loading, or if they can't be decoded
+function synthPluck(n,t){const f=freq(n);
+  const dur=Math.max(0.28,0.9-(f-262)*0.0005);
   const partials=[[1,0.50,dur],[2,0.20,dur*0.7],[3,0.11,dur*0.5],[4.2,0.06,dur*0.35],[5.4,0.03,dur*0.25]];
   partials.forEach(function(p){const o=audio.createOscillator(),ga=audio.createGain();
     o.type='sine';o.frequency.value=f*p[0];
-    ga.gain.setValueAtTime(0,t);ga.gain.linearRampToValueAtTime(p[1],t+0.002);   // fast pluck attack
+    ga.gain.setValueAtTime(0,t);ga.gain.linearRampToValueAtTime(p[1],t+0.002);
     ga.gain.exponentialRampToValueAtTime(0.0004,t+p[2]);
     o.connect(ga).connect(master);o.start(t);o.stop(t+p[2]+0.05);});}
 function playNotes(notes){if(!notes||!notes.length)return;ensureAudio();const t=audio.currentTime;notes.forEach(n=>pluck(n,t));}
