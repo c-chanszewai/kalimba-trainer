@@ -261,10 +261,19 @@ function bufOnsetGain(buf){const d=buf.getChannelData(0);const sr=buf.sampleRate
     let r=0;for(let j=0;j<win;j++){const v=d[i+j];r+=v*v;}
     if(Math.sqrt(r/win)<floorThr){endIdx=i;break;}}
   return {onset:startIdx/sr, gain:peak>0?Math.min(4,0.9/peak):0.9,
-          natLen:Math.max(0.6,(endIdx-startIdx)/sr)};}
+          natLen:Math.max(0.6,(endIdx-startIdx)/sr), nf:nf};}
+// downward expander: duck low-level content (hiss) while leaving the pluck untouched
+function denoise(buf,nf){const sr=buf.sampleRate;const chs=[];
+  for(let c=0;c<buf.numberOfChannels;c++)chs.push(buf.getChannelData(c));
+  const ref=chs[0];const atk=Math.exp(-1/(sr*0.004)),rel=Math.exp(-1/(sr*0.09));
+  const thr=Math.max(nf*5,1e-4);let env=0;
+  for(let i=0;i<ref.length;i++){const a=Math.abs(ref[i]);
+    env=a>env?atk*env+(1-atk)*a:rel*env+(1-rel)*a;
+    let g=1;if(env<thr){g=env/thr;g=Math.max(0.02,g*g);}   // squared ducking, floor -34dB
+    for(let c=0;c<chs.length;c++)chs[c][i]*=g;}}
 function loadSamples(){if(samplesTried)return;samplesTried=true;
   Promise.all(SAMPLE_DEFS.map(s=>fetch(s.url).then(r=>r.arrayBuffer()).then(b=>audio.decodeAudioData(b))
-    .then(buf=>Object.assign({f:s.f,buf:buf},bufOnsetGain(buf)))))
+    .then(function(buf){const info=bufOnsetGain(buf);denoise(buf,info.nf);return Object.assign({f:s.f,buf:buf},info);})))
     .then(list=>{samples=list;}).catch(()=>{samples=null;});}
 function pickSample(f){let best=samples[0],bd=1e9;for(const s of samples){const d=Math.abs(Math.log2(f/s.f));if(d<bd){bd=d;best=s;}}return best;}
 
