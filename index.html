@@ -236,7 +236,11 @@ let tapPos=0,tapLocal=-1,tapDurs=[];
 
 // ================= audio =================
 function ensureAudio(){if(!audio){audio=new (window.AudioContext||window.webkitAudioContext)();
-  master=audio.createDynamicsCompressor();master.connect(audio.destination);loadSamples();}}
+  const comp=audio.createDynamicsCompressor();
+  const bright=audio.createBiquadFilter();bright.type='highshelf';bright.frequency.value=2600;bright.gain.value=3.5; // gentle brighten
+  bright.connect(comp);comp.connect(audio.destination);
+  master=bright;                 // notes -> brightness shelf -> compressor -> output
+  loadSamples();}}
 function freq(n){return 261.63*Math.pow(2,pitchVal(n)/12);}
 
 // ---- real kalimba samples (recorded tines), pitch-shifted to play every note ----
