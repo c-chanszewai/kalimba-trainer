@@ -1,16 +1,13 @@
 // Kalimba Trainer service worker — caches the app shell so it runs fully offline.
 // Bump CACHE when you change any cached file, so clients pick up the new version.
-const CACHE = 'kalimba-v6';
+const CACHE = 'kalimba-v7';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
-  './icon-180.png',
-  './Tine-c4.m4a',
-  './Tine-c5.m4a',
-  './Tine-e6.m4a'
+  './icon-180.png'
 ];
 
 self.addEventListener('install', e => {
