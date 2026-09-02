@@ -238,20 +238,30 @@ let tapPos=0,tapLocal=-1,tapDurs=[];
 function ensureAudio(){if(!audio){audio=new (window.AudioContext||window.webkitAudioContext)();
   const comp=audio.createDynamicsCompressor();
   const bright=audio.createBiquadFilter();bright.type='highshelf';bright.frequency.value=2600;bright.gain.value=3.5; // gentle brighten
-  bright.connect(comp);comp.connect(audio.destination);
-  master=bright;                 // notes -> brightness shelf -> compressor -> output
+  const hp=audio.createBiquadFilter();hp.type='highpass';hp.frequency.value=120;hp.Q.value=0.7;                     // cut low room rumble
+  hp.connect(bright);bright.connect(comp);comp.connect(audio.destination);
+  master=hp;                     // notes -> high-pass -> brightness shelf -> compressor -> output
   loadSamples();}}
 function freq(n){return 261.63*Math.pow(2,pitchVal(n)/12);}
 
 // ---- real kalimba samples (recorded tines), pitch-shifted to play every note ----
 const SAMPLE_DEFS=[{f:261.63,url:'Tine-c4.m4a'},{f:523.25,url:'Tine-c5.m4a'},{f:1318.51,url:'Tine-e6.m4a'}];
 let samples=null,samplesTried=false;
-function bufOnsetGain(buf){const d=buf.getChannelData(0);let peak=0,onset=0;
-  for(let i=0;i<d.length;i++){const a=Math.abs(d[i]);if(a>peak)peak=a;}
+function bufOnsetGain(buf){const d=buf.getChannelData(0);const sr=buf.sampleRate;
+  let peak=0;for(let i=0;i<d.length;i++){const a=Math.abs(d[i]);if(a>peak)peak=a;}
   const thr=Math.max(0.02,peak*0.06);
-  for(let i=0;i<d.length;i++){if(Math.abs(d[i])>thr){onset=i;break;}}
-  return {onset:Math.max(0,onset-Math.round(buf.sampleRate*0.005))/buf.sampleRate,
-          gain:peak>0?Math.min(4,0.9/peak):0.9};}
+  let onsetIdx=0;for(let i=0;i<d.length;i++){if(Math.abs(d[i])>thr){onsetIdx=i;break;}}
+  // noise floor = RMS of the silent lead-in before the pluck
+  let nf=0,nc=0;for(let i=0;i<onsetIdx;i++){nf+=d[i]*d[i];nc++;}
+  nf=nc>500?Math.sqrt(nf/nc):0.0015;
+  const startIdx=Math.max(0,onsetIdx-Math.round(sr*0.005));
+  // find where the note decays into the noise floor -> stop there so we don't play the hissy tail
+  const win=Math.round(sr*0.02),floorThr=Math.max(nf*2.2,peak*0.02);let endIdx=d.length;
+  for(let i=onsetIdx+Math.round(sr*0.15);i+win<d.length;i+=win){
+    let r=0;for(let j=0;j<win;j++){const v=d[i+j];r+=v*v;}
+    if(Math.sqrt(r/win)<floorThr){endIdx=i;break;}}
+  return {onset:startIdx/sr, gain:peak>0?Math.min(4,0.9/peak):0.9,
+          natLen:Math.max(0.6,(endIdx-startIdx)/sr)};}
 function loadSamples(){if(samplesTried)return;samplesTried=true;
   Promise.all(SAMPLE_DEFS.map(s=>fetch(s.url).then(r=>r.arrayBuffer()).then(b=>audio.decodeAudioData(b))
     .then(buf=>Object.assign({f:s.f,buf:buf},bufOnsetGain(buf)))))
@@ -262,7 +272,7 @@ function pluck(n,t){const f=freq(n);
   if(samples&&samples.length){const s=pickSample(f);const rate=f/s.f;
     const src=audio.createBufferSource();src.buffer=s.buf;src.playbackRate.value=rate;
     const avail=(s.buf.duration-s.onset)/rate;                     // real seconds left in the sample
-    const ring=Math.min(avail,Math.max(1.2,2.6-(f-262)*0.0009));   // cap ring; higher notes shorter
+    const ring=Math.min(avail,s.natLen/rate,Math.max(1.2,2.6-(f-262)*0.0009)); // stop at decay/cap
     const g=audio.createGain();
     g.gain.setValueAtTime(s.gain,t);
     g.gain.setValueAtTime(s.gain,t+Math.max(0.02,ring-0.18));
