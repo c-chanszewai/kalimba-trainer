@@ -496,33 +496,37 @@ document.getElementById('editRestore').onclick=()=>{
   const first=Object.keys(LIBRARY)[0];songSel.value=first;loadSong(first);
   editText.value=Object.entries(LIBRARY).map(([k,v])=>'#'+k+'\n'+v).join('\n\n');};
 
-// import a .txt file of tabs (adds/updates songs, keeps existing ones and their rhythms)
+// import a .txt file of tabs. Replace mode mirrors the file (incl. deletions); merge just adds/updates.
 const importFile=document.getElementById('importFile');
 document.getElementById('importBtn').onclick=()=>importFile.click();
 importFile.onchange=()=>{const f=importFile.files&&importFile.files[0];if(!f)return;
   const rd=new FileReader();
-  rd.onload=()=>{const n=importTabs(rd.result,f.name.replace(/\.[^.]+$/,''));importFile.value='';
-    if(!n)alert('No songs found in that file. Use lines of numbers, with "#Title" before each song.');};
+  rd.onload=()=>{const text=rd.result;importFile.value='';
+    const replace=confirm('Replace ALL songs with this file?\n\nOK = replace (mirror the file, including deletions)\nCancel = add / update only (keep your other songs)');
+    const n=importTabs(text,f.name.replace(/\.[^.]+$/,''),replace);
+    if(!n)alert('No songs found in that file. Each song needs a "#Title" line, then lines of numbers.');};
   rd.readAsText(f);};
-function importTabs(text,fallbackName){
-  const blocks=String(text).replace(/\r/g,'').split(/\n\s*\n(?=#)/);let firstName=null,added=0;
+function importTabs(text,fallbackName,replace){
+  const blocks=String(text).replace(/\r/g,'').split(/\n\s*\n(?=#)/);const incoming={};let firstName=null;
   blocks.forEach(bl=>{const lines=bl.split('\n');let name='',start=0;
     if(lines[0]&&lines[0].trim().startsWith('#')){name=lines[0].replace(/^#\s*/,'').trim();start=1;}
     const body=lines.slice(start).join('\n').trim();if(!body)return;
     if(!name)name=fallbackName||'Untitled';
-    LIBRARY[name]=body;if(!firstName)firstName=name;added++;});
-  if(!added)return 0;
+    incoming[name]=body;if(!firstName)firstName=name;});
+  const names=Object.keys(incoming);if(!names.length)return 0;   // never wipe on an empty/garbled file
+  if(replace)Object.keys(LIBRARY).forEach(k=>delete LIBRARY[k]);
+  Object.assign(LIBRARY,incoming);
+  if(replace){Object.keys(S.tapRhythm).forEach(k=>{if(!(k in LIBRARY))delete S.tapRhythm[k];});saveRhythm();}
   songSel.innerHTML='';Object.keys(LIBRARY).forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;songSel.appendChild(o);});
-  saveLibrary();
-  songSel.value=firstName;loadSong(firstName);saveState();
-  return added;}
+  saveLibrary();songSel.value=firstName;loadSong(firstName);saveState();
+  return names.length;}
 
 window.addEventListener('keydown',e=>{if(e.code!=='Space'||edit.classList.contains('show'))return;
   e.preventDefault();
   if(S.tapMode){if(S.capturing)recordTap();else onTap();return;}
   toggle();});
 
-const APP_VER='v14';   // small build tag in the footer, to confirm updates reached the device
+const APP_VER='v15';   // small build tag in the footer, to confirm updates reached the device
 // storage self-check: warn only if the browser is actually blocking storage
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false;
