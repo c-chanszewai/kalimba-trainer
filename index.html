@@ -497,6 +497,7 @@ window.addEventListener('keydown',e=>{if(e.code!=='Space'||edit.classList.contai
   if(S.tapMode){if(S.capturing)recordTap();else onTap();return;}
   toggle();});
 
+const APP_VER='v10';   // shown in the footer so you can confirm the running build
 // storage self-check: does a saved value survive across full app closes?
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false,visits=0;
@@ -505,9 +506,9 @@ function storageHealth(){const el=document.getElementById('storageNote');if(!el)
     localStorage.setItem(k,JSON.stringify({n:visits+1,t:Date.now()}));
     ok=localStorage.getItem(k)!=null;visits=visits+1;
   }catch(e){ok=false;}
-  if(!ok){el.textContent='⚠ Storage blocked here — rhythms won’t save';el.className='warn';}
-  else if(visits>1){el.textContent='Saving works · visit #'+visits;el.className='';}
-  else{el.textContent='Storage ready · first visit (close & reopen to confirm it sticks)';el.className='';}}
+  if(!ok){el.textContent='⚠ Storage blocked here — rhythms won’t save · '+APP_VER;el.className='warn';}
+  else if(visits>1){el.textContent='Saving works · visit #'+visits+' · '+APP_VER;el.className='';}
+  else{el.textContent='Storage ready · first visit · '+APP_VER;el.className='';}}
 
 // init
 setRest(0);loadSong(Object.keys(LIBRARY)[0]);storageHealth();
