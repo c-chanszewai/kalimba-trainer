@@ -114,7 +114,9 @@
   <h1>Kalimba Trainer</h1>
   <select id="song"></select>
   <div class="sp"></div>
+  <button id="importBtn" class="ghost">Import</button>
   <button id="editBtn" class="ghost">Edit tab</button>
+  <input type="file" id="importFile" accept=".txt,text/plain" hidden>
 </header>
 
 <div class="panel">
@@ -494,12 +496,33 @@ document.getElementById('editRestore').onclick=()=>{
   const first=Object.keys(LIBRARY)[0];songSel.value=first;loadSong(first);
   editText.value=Object.entries(LIBRARY).map(([k,v])=>'#'+k+'\n'+v).join('\n\n');};
 
+// import a .txt file of tabs (adds/updates songs, keeps existing ones and their rhythms)
+const importFile=document.getElementById('importFile');
+document.getElementById('importBtn').onclick=()=>importFile.click();
+importFile.onchange=()=>{const f=importFile.files&&importFile.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{const n=importTabs(rd.result,f.name.replace(/\.[^.]+$/,''));importFile.value='';
+    if(!n)alert('No songs found in that file. Use lines of numbers, with "#Title" before each song.');};
+  rd.readAsText(f);};
+function importTabs(text,fallbackName){
+  const blocks=String(text).replace(/\r/g,'').split(/\n\s*\n(?=#)/);let firstName=null,added=0;
+  blocks.forEach(bl=>{const lines=bl.split('\n');let name='',start=0;
+    if(lines[0]&&lines[0].trim().startsWith('#')){name=lines[0].replace(/^#\s*/,'').trim();start=1;}
+    const body=lines.slice(start).join('\n').trim();if(!body)return;
+    if(!name)name=fallbackName||'Untitled';
+    LIBRARY[name]=body;if(!firstName)firstName=name;added++;});
+  if(!added)return 0;
+  songSel.innerHTML='';Object.keys(LIBRARY).forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;songSel.appendChild(o);});
+  saveLibrary();
+  songSel.value=firstName;loadSong(firstName);saveState();
+  return added;}
+
 window.addEventListener('keydown',e=>{if(e.code!=='Space'||edit.classList.contains('show'))return;
   e.preventDefault();
   if(S.tapMode){if(S.capturing)recordTap();else onTap();return;}
   toggle();});
 
-const APP_VER='v13';   // small build tag in the footer, to confirm updates reached the device
+const APP_VER='v14';   // small build tag in the footer, to confirm updates reached the device
 // storage self-check: warn only if the browser is actually blocking storage
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false;
