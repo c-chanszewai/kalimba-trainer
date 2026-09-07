@@ -115,6 +115,7 @@
   <select id="song"></select>
   <div class="sp"></div>
   <button id="importBtn" class="ghost">Import</button>
+  <button id="exportBtn" class="ghost">Export</button>
   <button id="editBtn" class="ghost">Edit tab</button>
   <input type="file" id="importFile" accept=".txt,text/plain" hidden>
 </header>
@@ -521,12 +522,26 @@ function importTabs(text,fallbackName,replace){
   saveLibrary();songSel.value=firstName;loadSong(firstName);saveState();
   return names.length;}
 
+// export all songs to a .txt file (same format Import reads) — Share sheet on iOS, download elsewhere
+function songbookText(){return Object.entries(LIBRARY).map(([k,v])=>'#'+k+'\n'+v).join('\n\n')+'\n';}
+async function exportTabs(){
+  const text=songbookText(),fname='kalimba-songs.txt';
+  const blob=new Blob([text],{type:'text/plain'});
+  try{const file=new File([blob],fname,{type:'text/plain'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:'Kalimba songs'});return;}
+  }catch(e){if(e&&e.name==='AbortError')return;}
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.href=url;a.download=fname;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);}
+document.getElementById('exportBtn').onclick=exportTabs;
+
 window.addEventListener('keydown',e=>{if(e.code!=='Space'||edit.classList.contains('show'))return;
   e.preventDefault();
   if(S.tapMode){if(S.capturing)recordTap();else onTap();return;}
   toggle();});
 
-const APP_VER='v15';   // small build tag in the footer, to confirm updates reached the device
+const APP_VER='v16';   // small build tag in the footer, to confirm updates reached the device
 // storage self-check: warn only if the browser is actually blocking storage
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false;
