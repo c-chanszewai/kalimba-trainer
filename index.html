@@ -168,7 +168,7 @@
   <div class="er"><strong>Edit / paste tab</strong><div class="sp" style="flex:1"></div>
     <button id="editRestore" class="ghost">Restore built-in</button><button id="editCancel" class="ghost">Cancel</button><button id="editSave" class="on">Load</button></div>
   <textarea id="editText" spellcheck="false"></textarea>
-  <div class="spec">Numbers <code>1</code>–<code>7</code> are tine positions (relative &mdash; plays on any kalimba). <code>^</code> = one octave up. <code>( )</code> = played together. Inside a group a dash separates melody from an accompaniment chord, e.g. <code>(6^ -46 1^)</code>. Line breaks = phrases. Blank line then <code>#Title</code> starts a new song.</div>
+  <div class="spec">Numbers <code>1</code>–<code>7</code> are tine positions (relative &mdash; plays on any kalimba). <code>^</code> = one octave up, <code>,</code> = one octave down. <code>( )</code> = played together. Inside a group a dash separates melody from an accompaniment chord, e.g. <code>(6^ -46 1^)</code>. Line breaks = phrases. Blank line then <code>#Title</code> starts a new song.</div>
 </div>
 
 <script>
@@ -207,8 +207,10 @@ function loadStored(){
 }
 
 // ================= music core =================
-function parseNotes(seg){const out=[];const re=/([1-8])(\^*)/g;let m;
-  while((m=re.exec(seg))){let deg=+m[1],oct=m[2].length;if(deg===8){deg=1;oct++;}out.push({deg,oct});}return out;}
+function parseNotes(seg){const out=[];const re=/([1-8])([\^,]*)/g;let m;
+  while((m=re.exec(seg))){let deg=+m[1],mod=m[2];
+    let oct=(mod.match(/\^/g)||[]).length-(mod.match(/,/g)||[]).length;   // ^ up, , down
+    if(deg===8){deg=1;oct++;}out.push({deg,oct});}return out;}
 function parseTab(text){const beats=[];text.split(/\n/).forEach((line,li)=>{
   const toks=line.match(/\([^)]*\)|\S+/g);if(!toks)return;
   toks.forEach(tok=>{let melody=[],chord=null;
@@ -229,7 +231,7 @@ function nameChord(notes){const d=degSet(notes);
   for(const k in CORES)if(d.every(x=>CORES[k].includes(x)))return k;
   return d.join('\u00b7');}
 function suggestPrimary(deg){for(const k of['I','IV','V'])if(CORES[k].includes(deg))return k;return null;}
-function noteStr(n){return n.deg+'^'.repeat(n.oct);}
+function noteStr(n){return n.deg+(n.oct>=0?'^'.repeat(n.oct):','.repeat(-n.oct));}
 function pitchVal(n){const s={1:0,2:2,3:4,4:5,5:7,6:9,7:11};return s[n.deg]+12*n.oct;}
 function sortHi(notes){return notes.slice().sort((a,b)=>pitchVal(b)-pitchVal(a));}
 
@@ -541,7 +543,7 @@ window.addEventListener('keydown',e=>{if(e.code!=='Space'||edit.classList.contai
   if(S.tapMode){if(S.capturing)recordTap();else onTap();return;}
   toggle();});
 
-const APP_VER='v16';   // small build tag in the footer, to confirm updates reached the device
+const APP_VER='v17';   // small build tag in the footer, to confirm updates reached the device
 // storage self-check: warn only if the browser is actually blocking storage
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false;
