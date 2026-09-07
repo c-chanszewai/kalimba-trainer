@@ -396,7 +396,8 @@ function setTapMode(on){S.tapMode=on;document.getElementById('tapBtn').classList
   if(on){if(S.drill){S.drill=false;document.getElementById('drillBtn').classList.remove('on');
       document.getElementById('drill').classList.remove('show');}
     scoreEl.style.display='block';stop();refreshTap();}
-  else{S.capturing=false;stop();const sc=tapScopeRange();S.head=sc.s;paint();}}
+  else{S.capturing=false;stop();const sc=tapScopeRange();S.head=sc.s;paint();}
+  if(typeof saveState==='function')saveState();}
 function refreshTap(){if(!S.tapMode)return;S.capturing=false;stop();ensureMaster();
   const sc=tapScopeRange();S.head=sc.s;paint();updateTapStatus();}
 function startCapture(){stop();S.capturing=true;S.tapCount=0;ensureMaster();
@@ -449,7 +450,7 @@ const songSel=document.getElementById('song');
 loadStored();   // pull saved songs + tapped rhythms from a previous session, if any
 Object.keys(LIBRARY).forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;songSel.appendChild(o);});
 function loadSong(name,text){S.songName=name;S.beats=parseTab(text||LIBRARY[name]);S.loop=null;S.pendingStart=null;S.head=0;lastBeat=-1;stop();render();if(S.drill)buildDrill();if(S.tapMode)refreshTap();if(typeof updateSaveNote==='function')updateSaveNote();}
-songSel.onchange=()=>loadSong(songSel.value);
+songSel.onchange=()=>{loadSong(songSel.value);saveState();};
 
 document.getElementById('play').onclick=toggle;
 const tempo=document.getElementById('tempo');
@@ -498,7 +499,7 @@ window.addEventListener('keydown',e=>{if(e.code!=='Space'||edit.classList.contai
   if(S.tapMode){if(S.capturing)recordTap();else onTap();return;}
   toggle();});
 
-const APP_VER='v11';   // shown in the footer so you can confirm the running build
+const APP_VER='v12';   // shown in the footer so you can confirm the running build
 // storage self-check: does a saved value survive across full app closes?
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false,visits=0;
@@ -514,15 +515,22 @@ function storageHealth(){const el=document.getElementById('storageNote');if(!el)
 function savedCount(name){try{const r=JSON.parse(localStorage.getItem('kalimba.rhythm.v1')||'{}');
   return (r[name]&&r[name].filter)?r[name].filter(x=>x!=null).length:0;}catch(e){return -1;}}
 function updateSaveNote(){const el=document.getElementById('saveNote');if(!el)return;
-  const mem=(S.tapRhythm[S.songName]||[]).filter(x=>x!=null).length;
-  el.textContent='['+S.songName+' mem:'+mem+' disk:'+savedCount(S.songName)+']';}
+  const arr=(S.tapRhythm[S.songName]||[]).filter(x=>x!=null);const mem=arr.length;
+  let rng='';if(mem){rng=' '+Math.min.apply(null,arr).toFixed(1)+'–'+Math.max.apply(null,arr).toFixed(1);}
+  el.textContent='['+S.songName+' mem:'+mem+' disk:'+savedCount(S.songName)+rng+']';}
+// remember which song + whether tap-rhythm mode was on, so reopening resumes it
+function saveState(){try{localStorage.setItem('kalimba.state.v1',JSON.stringify({song:S.songName,tap:S.tapMode}));}catch(e){}}
 // flush saves when the app is backgrounded/closed (iOS may kill it before a later write)
-function flushSaves(){try{saveRhythm();saveLibrary();}catch(e){}}
+function flushSaves(){try{saveRhythm();saveLibrary();saveState();}catch(e){}}
 window.addEventListener('pagehide',flushSaves);
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')flushSaves();});
 
-// init
-setRest(0);loadSong(Object.keys(LIBRARY)[0]);storageHealth();updateSaveNote();
+// init — restore last song + tap-rhythm mode if they were saved
+let bootState=null;try{bootState=JSON.parse(localStorage.getItem('kalimba.state.v1')||'null');}catch(e){}
+const bootSong=(bootState&&bootState.song&&LIBRARY[bootState.song])?bootState.song:Object.keys(LIBRARY)[0];
+setRest(0);songSel.value=bootSong;loadSong(bootSong);
+if(bootState&&bootState.tap)setTapMode(true);
+storageHealth();updateSaveNote();
 </script>
 <script>
 // Register the service worker for offline use (only works over http/https, e.g. GitHub Pages).
