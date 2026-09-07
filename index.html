@@ -159,7 +159,7 @@
   <div class="empty" id="drillEmpty" style="display:none">No chords in this section. Set a loop over a passage that has chords, or turn on Chord hints to drill suggested chords.</div>
 </div>
 
-<footer><span id="storageNote"></span><span id="saveNote"></span><a href="https://www.flaticon.com/free-icons/kalimba" title="kalimba icons">Kalimba icons created by Mayor Icons - Flaticon</a></footer>
+<footer><span id="storageNote"></span><a href="https://www.flaticon.com/free-icons/kalimba" title="kalimba icons">Kalimba icons created by Mayor Icons - Flaticon</a></footer>
 
 <div id="edit">
   <div class="er"><strong>Edit / paste tab</strong><div class="sp" style="flex:1"></div>
@@ -499,18 +499,13 @@ window.addEventListener('keydown',e=>{if(e.code!=='Space'||edit.classList.contai
   if(S.tapMode){if(S.capturing)recordTap();else onTap();return;}
   toggle();});
 
-const APP_VER='v12';   // shown in the footer so you can confirm the running build
-// storage self-check: does a saved value survive across full app closes?
+const APP_VER='v13';   // small build tag in the footer, to confirm updates reached the device
+// storage self-check: warn only if the browser is actually blocking storage
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
-  let ok=false,visits=0;
-  try{const k='kalimba.diag';const prev=localStorage.getItem(k);
-    if(prev){try{visits=JSON.parse(prev).n||0;}catch(e){}}
-    localStorage.setItem(k,JSON.stringify({n:visits+1,t:Date.now()}));
-    ok=localStorage.getItem(k)!=null;visits=visits+1;
-  }catch(e){ok=false;}
-  if(!ok){el.textContent='⚠ Storage blocked here — rhythms won’t save · '+APP_VER;el.className='warn';}
-  else if(visits>1){el.textContent='Saving works · visit #'+visits+' · '+APP_VER;el.className='';}
-  else{el.textContent='Storage ready · first visit · '+APP_VER;el.className='';}}
+  let ok=false;
+  try{localStorage.setItem('kalimba.diag','1');ok=localStorage.getItem('kalimba.diag')==='1';}catch(e){ok=false;}
+  if(!ok){el.textContent='⚠ Storage blocked — rhythms won’t save · '+APP_VER;el.className='warn';}
+  else{el.textContent=APP_VER;el.className='';}}
 // live readout: tapped notes in memory vs actually on disk for the current song
 function savedCount(name){try{const r=JSON.parse(localStorage.getItem('kalimba.rhythm.v1')||'{}');
   return (r[name]&&r[name].filter)?r[name].filter(x=>x!=null).length:0;}catch(e){return -1;}}
