@@ -372,8 +372,11 @@ function toggle(){if(S.tapMode){if(S.capturing)return;tapToggle();return;}S.play
 
 // ================= tap-the-rhythm mode =================
 // One master duration array per song (index = note index). null = untapped -> plays at 1 beat.
-function ensureMaster(){let m=S.tapRhythm[S.songName];
-  if(!m||m.length!==S.beats.length){m=new Array(S.beats.length).fill(null);S.tapRhythm[S.songName]=m;}return m;}
+function ensureMaster(){let m=S.tapRhythm[S.songName];const n=S.beats.length;
+  if(!Array.isArray(m)){m=new Array(n).fill(null);S.tapRhythm[S.songName]=m;return m;}
+  if(m.length!==n){const nm=new Array(n).fill(null),k=Math.min(n,m.length);   // song length changed:
+    for(let i=0;i<k;i++)nm[i]=m[i];S.tapRhythm[S.songName]=nm;m=nm;}          // keep tapped values, don't wipe
+  return m;}
 function tapScopeRange(){return S.loop?{s:S.loop.s,e:S.loop.e}:{s:0,e:S.beats.length-1};}
 function tapBeatsArr(){const sc=tapScopeRange();const m=ensureMaster();const out=[];
   for(let i=sc.s;i<=sc.e;i++){const v=m[i];out.push(v!=null?v:1);}return out;}  // per-note length in BEATS (null=1)
