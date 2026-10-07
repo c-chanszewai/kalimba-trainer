@@ -344,7 +344,8 @@ function trigger(i){
 }
 let scrollTarget=0;
 function scrollTo(bi){const el=scoreEl.querySelector('.beat[data-i="'+bi+'"]');if(!el)return;
-  const row=el.closest('.row');const mid=row.offsetTop-scoreEl.clientHeight*0.4;scrollTarget=Math.max(0,mid);}
+  const row=el.closest('.row');const mid=row.offsetTop-scoreEl.clientHeight*0.4;scrollTarget=Math.max(0,mid);
+  if(!S.playing)scoreEl.scrollTo({top:scrollTarget,behavior:'smooth'});}   // follow along while tapping
 function loop(t){
   if(!S.playing)return;
   if(!lastT)lastT=t;const dt=(t-lastT)/1000;lastT=t;
@@ -543,7 +544,7 @@ window.addEventListener('keydown',e=>{if(e.code!=='Space'||edit.classList.contai
   if(S.tapMode){if(S.capturing)recordTap();else onTap();return;}
   toggle();});
 
-const APP_VER='v18';   // small build tag in the footer, to confirm updates reached the device
+const APP_VER='v19';   // small build tag in the footer, to confirm updates reached the device
 // storage self-check: warn only if the browser is actually blocking storage
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false;
