@@ -20,7 +20,7 @@
     --mel:#e9efeb; --chord:#7fb4c4; --sugg:#6b8f83; --ghost:#3a5253;
     --active:#d9a94e; --loop:rgba(217,169,78,.10);
   }
-  *{box-sizing:border-box;margin:0;padding:0}
+  *{box-sizing:border-box;margin:0;padding:0;touch-action:manipulation}
   html,body{height:100%}
   body{background:var(--ground);color:var(--ink);font-family:"Segoe UI",system-ui,sans-serif;
     display:flex;flex-direction:column;height:100vh;overflow:hidden}
@@ -543,7 +543,7 @@ window.addEventListener('keydown',e=>{if(e.code!=='Space'||edit.classList.contai
   if(S.tapMode){if(S.capturing)recordTap();else onTap();return;}
   toggle();});
 
-const APP_VER='v17';   // small build tag in the footer, to confirm updates reached the device
+const APP_VER='v18';   // small build tag in the footer, to confirm updates reached the device
 // storage self-check: warn only if the browser is actually blocking storage
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false;
