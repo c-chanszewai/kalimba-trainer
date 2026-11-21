@@ -421,8 +421,11 @@ function refreshTap(){if(!S.tapMode)return;S.capturing=false;stop();ensureMaster
   const sc=tapScopeRange();S.head=sc.s;paint();updateTapStatus();}
 function startCapture(){stop();S.capturing=true;S.tapCount=0;ensureMaster();
   const sc=tapScopeRange();S.head=sc.s;paint();scrollTo(sc.s);updateTapStatus();}
-function onTap(){if(!S.beats.length)return;if(!S.capturing)startCapture();recordTap();}
-function recordTap(){const now=performance.now()/1000;const sc=tapScopeRange();const len=sc.e-sc.s+1;const m=ensureMaster();
+// when the finger actually landed (event timestamp), not when we got round to handling it —
+// handling can lag during scrolling at line changes, which would skew the rhythm
+function eventTime(e){const now=performance.now(),ts=e&&e.timeStamp;return (ts>0&&now-ts>=0&&now-ts<1000)?ts:now;}
+function onTap(t){if(!S.beats.length)return;if(!S.capturing)startCapture();recordTap(t);}
+function recordTap(t){const now=(typeof t==='number'?t:performance.now())/1000;const sc=tapScopeRange();const len=sc.e-sc.s+1;const m=ensureMaster();
   if(S.tapCount>0)m[sc.s+S.tapCount-1]=(now-S.lastTapT)*S.tempo/60;   // store in BEATS (tempo-independent)
   S.lastTapT=now;
   const justBi=sc.s+S.tapCount;if(S.beats[justBi])playBeatNotes(justBi);
@@ -485,7 +488,7 @@ drillBtn.onclick=()=>{if(S.tapMode)setTapMode(false);S.drill=!S.drill;drillBtn.c
   stop();S.head=S.loop?S.loop.s:0;lastBeat=-1;if(S.drill)buildDrill();};
 document.getElementById('tapBtn').onclick=()=>setTapMode(!S.tapMode);
 // taps register on touch-down (not release) — faster, more accurate, and no dropped taps on iPad
-function tapDown(e){if(e.pointerType==='mouse'&&e.button!==0)return;e.preventDefault();onTap();
+function tapDown(e){if(e.pointerType==='mouse'&&e.button!==0)return;e.preventDefault();onTap(eventTime(e));
   const p=document.getElementById('tapPad');p.classList.add('hit');setTimeout(()=>p.classList.remove('hit'),90);}
 document.getElementById('tapNow').addEventListener('pointerdown',tapDown);
 document.getElementById('tapPad').addEventListener('pointerdown',tapDown);
@@ -559,10 +562,10 @@ document.getElementById('exportBtn').onclick=exportTabs;
 // in tap mode, Space/Enter/arrow/PageDown all tap — so a Bluetooth page-turner pedal works too
 const TAP_KEYS=['Space','Enter','NumpadEnter','ArrowRight','ArrowDown','PageDown'];
 window.addEventListener('keydown',e=>{if(edit.classList.contains('show'))return;
-  if(S.tapMode&&TAP_KEYS.includes(e.code)){e.preventDefault();if(!e.repeat)onTap();return;}
+  if(S.tapMode&&TAP_KEYS.includes(e.code)){e.preventDefault();if(!e.repeat)onTap(eventTime(e));return;}
   if(e.code!=='Space')return;e.preventDefault();toggle();});
 
-const APP_VER='v21';   // small build tag in the footer, to confirm updates reached the device
+const APP_VER='v22';   // small build tag in the footer, to confirm updates reached the device
 // storage self-check: warn only if the browser is actually blocking storage
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false;
