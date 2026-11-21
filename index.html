@@ -531,22 +531,30 @@ importFile.onchange=()=>{const f=importFile.files&&importFile.files[0];if(!f)ret
     if(!n)alert('No songs found in that file. Each song needs a "#Title" line, then lines of numbers.');};
   rd.readAsText(f);};
 function importTabs(text,fallbackName,replace){
-  const blocks=String(text).replace(/\r/g,'').split(/\n\s*\n(?=#)/);const incoming={};let firstName=null;
-  blocks.forEach(bl=>{const lines=bl.split('\n');let name='',start=0;
+  const blocks=String(text).replace(/\r/g,'').split(/\n\s*\n(?=#)/);const incoming={},incomingRhy={};let firstName=null;
+  blocks.forEach(bl=>{const lines=bl.split('\n');let name='',start=0,rhy=null;const bodyLines=[];
     if(lines[0]&&lines[0].trim().startsWith('#')){name=lines[0].replace(/^#\s*/,'').trim();start=1;}
-    const body=lines.slice(start).join('\n').trim();if(!body)return;
+    lines.slice(start).forEach(l=>{const t=l.trim();
+      if(/^@rhythm\b/i.test(t))   // tapped rhythm written by Export: beats per note, "-" = untapped
+        rhy=t.replace(/^@rhythm\s*/i,'').split(/\s+/).filter(Boolean).map(x=>(x!=='-'&&isFinite(+x)&&+x>0)?+x:null);
+      else bodyLines.push(l);});
+    const body=bodyLines.join('\n').trim();if(!body)return;
     if(!name)name=fallbackName||'Untitled';
-    incoming[name]=body;if(!firstName)firstName=name;});
+    incoming[name]=body;if(rhy&&rhy.some(x=>x!=null))incomingRhy[name]=rhy;if(!firstName)firstName=name;});
   const names=Object.keys(incoming);if(!names.length)return 0;   // never wipe on an empty/garbled file
   if(replace)Object.keys(LIBRARY).forEach(k=>delete LIBRARY[k]);
   Object.assign(LIBRARY,incoming);
-  if(replace){Object.keys(S.tapRhythm).forEach(k=>{if(!(k in LIBRARY))delete S.tapRhythm[k];});saveRhythm();}
+  if(replace)Object.keys(S.tapRhythm).forEach(k=>{if(!(k in LIBRARY))delete S.tapRhythm[k];});
+  Object.assign(S.tapRhythm,incomingRhy);   // file's rhythms win; songs without one keep this device's rhythm
+  saveRhythm();
   songSel.innerHTML='';Object.keys(LIBRARY).forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;songSel.appendChild(o);});
   saveLibrary();songSel.value=firstName;loadSong(firstName);saveState();
   return names.length;}
 
 // export all songs to a .txt file (same format Import reads) — Share sheet on iOS, download elsewhere
-function songbookText(){return Object.entries(LIBRARY).map(([k,v])=>'#'+k+'\n'+v).join('\n\n')+'\n';}
+function songbookText(){return Object.entries(LIBRARY).map(([k,v])=>{let s='#'+k+'\n'+v;const r=S.tapRhythm[k];
+  if(Array.isArray(r)&&r.some(x=>x!=null))s+='\n@rhythm '+r.map(x=>x==null?'-':+x.toFixed(3)).join(' ');   // carry tapped rhythm
+  return s;}).join('\n\n')+'\n';}
 async function exportTabs(){
   const text=songbookText(),fname='kalimba-songs.txt';
   const blob=new Blob([text],{type:'text/plain'});
@@ -565,7 +573,7 @@ window.addEventListener('keydown',e=>{if(edit.classList.contains('show'))return;
   if(S.tapMode&&TAP_KEYS.includes(e.code)){e.preventDefault();if(!e.repeat)onTap(eventTime(e));return;}
   if(e.code!=='Space')return;e.preventDefault();toggle();});
 
-const APP_VER='v22';   // small build tag in the footer, to confirm updates reached the device
+const APP_VER='v23';   // small build tag in the footer, to confirm updates reached the device
 // storage self-check: warn only if the browser is actually blocking storage
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false;
