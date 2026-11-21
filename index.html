@@ -559,7 +559,7 @@ async function exportTabs(){
   const text=songbookText(),fname='kalimba-songs.txt';
   const blob=new Blob([text],{type:'text/plain'});
   try{const file=new File([blob],fname,{type:'text/plain'});
-    if(navigator.canShare&&navigator.canShare({files:[file]})){
+    if(matchMedia('(pointer: coarse)').matches&&navigator.canShare&&navigator.canShare({files:[file]})){   // share sheet on touch devices only
       await navigator.share({files:[file],title:'Kalimba songs'});return;}
   }catch(e){if(e&&e.name==='AbortError')return;}
   const url=URL.createObjectURL(blob);const a=document.createElement('a');
@@ -573,7 +573,7 @@ window.addEventListener('keydown',e=>{if(edit.classList.contains('show'))return;
   if(S.tapMode&&TAP_KEYS.includes(e.code)){e.preventDefault();if(!e.repeat)onTap(eventTime(e));return;}
   if(e.code!=='Space')return;e.preventDefault();toggle();});
 
-const APP_VER='v23';   // small build tag in the footer, to confirm updates reached the device
+const APP_VER='v24';   // small build tag in the footer, to confirm updates reached the device
 // storage self-check: warn only if the browser is actually blocking storage
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false;
