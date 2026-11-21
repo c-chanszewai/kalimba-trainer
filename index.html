@@ -106,6 +106,14 @@
   footer #storageNote{margin-right:10px}
   footer #storageNote.warn{color:var(--brass);font-weight:600}
   footer #saveNote{margin-right:10px;color:var(--muted)}
+
+  /* big tap pad (tap-rhythm mode) — registers on touch-down for responsive, accurate taps */
+  #tapPad{flex-shrink:0;display:none;align-items:center;justify-content:center;height:110px;margin:8px 16px;
+    border:2px solid var(--brass);border-radius:16px;background:var(--surface2);color:var(--brass);
+    font-size:22px;font-weight:700;letter-spacing:3px;user-select:none;-webkit-user-select:none;
+    -webkit-touch-callout:none;touch-action:none;cursor:pointer}
+  #tapPad.show{display:flex}
+  #tapPad.hit{background:var(--brass);color:#241a05}
 </style>
 </head>
 <body>
@@ -161,6 +169,8 @@
   <div class="chips" id="drillChips"></div>
   <div class="empty" id="drillEmpty" style="display:none">No chords in this section. Set a loop over a passage that has chords, or turn on Chord hints to drill suggested chords.</div>
 </div>
+
+<div id="tapPad">TAP</div>
 
 <footer><span id="storageNote"></span><a href="https://www.flaticon.com/free-icons/kalimba" title="kalimba icons">Kalimba icons created by Mayor Icons - Flaticon</a></footer>
 
@@ -396,9 +406,10 @@ function playBeatNotes(bi){const b=S.beats[bi];if(!b)return;let notes=[];
 function updateTapStatus(){const el=document.getElementById('tapStatus');const sc=tapScopeRange();const len=Math.max(0,sc.e-sc.s+1);
   if(S.capturing){el.innerHTML='Tapping… <b>'+S.tapCount+' / '+len+'</b>';return;}
   const scoped=S.loop?' in this phrase':'';
-  el.innerHTML='<b>'+tapCountInScope()+' / '+len+'</b> tapped'+scoped+' &mdash; <b>Play</b> to hear it (tempo scales speed). Tap/Space to (re)tap; untapped = 1 beat.';}
+  el.innerHTML='<b>'+tapCountInScope()+' / '+len+'</b> tapped'+scoped+' &mdash; <b>Play</b> to hear it (tempo scales speed). Tap the pad (or Space) to (re)tap; untapped = 1 beat.';}
 function setTapMode(on){S.tapMode=on;document.getElementById('tapBtn').classList.toggle('on',on);
   document.getElementById('tapGrp').style.display=on?'flex':'none';
+  document.getElementById('tapPad').classList.toggle('show',on);
   if(on){if(S.drill){S.drill=false;document.getElementById('drillBtn').classList.remove('on');
       document.getElementById('drill').classList.remove('show');}
     scoreEl.style.display='block';stop();refreshTap();}
@@ -471,7 +482,11 @@ drillBtn.onclick=()=>{if(S.tapMode)setTapMode(false);S.drill=!S.drill;drillBtn.c
   document.getElementById('score').style.display=S.drill?'none':'block';
   stop();S.head=S.loop?S.loop.s:0;lastBeat=-1;if(S.drill)buildDrill();};
 document.getElementById('tapBtn').onclick=()=>setTapMode(!S.tapMode);
-document.getElementById('tapNow').onclick=onTap;
+// taps register on touch-down (not release) — faster, more accurate, and no dropped taps on iPad
+function tapDown(e){if(e.pointerType==='mouse'&&e.button!==0)return;e.preventDefault();onTap();
+  const p=document.getElementById('tapPad');p.classList.add('hit');setTimeout(()=>p.classList.remove('hit'),90);}
+document.getElementById('tapNow').addEventListener('pointerdown',tapDown);
+document.getElementById('tapPad').addEventListener('pointerdown',tapDown);
 document.getElementById('tapReset').onclick=tapReset;
 document.getElementById('transBtn').onclick=transition;
 document.getElementById('clearLoop').onclick=clearLoop;
@@ -539,12 +554,13 @@ async function exportTabs(){
   setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);}
 document.getElementById('exportBtn').onclick=exportTabs;
 
-window.addEventListener('keydown',e=>{if(e.code!=='Space'||edit.classList.contains('show'))return;
-  e.preventDefault();
-  if(S.tapMode){if(S.capturing)recordTap();else onTap();return;}
-  toggle();});
+// in tap mode, Space/Enter/arrow/PageDown all tap — so a Bluetooth page-turner pedal works too
+const TAP_KEYS=['Space','Enter','NumpadEnter','ArrowRight','ArrowDown','PageDown'];
+window.addEventListener('keydown',e=>{if(edit.classList.contains('show'))return;
+  if(S.tapMode&&TAP_KEYS.includes(e.code)){e.preventDefault();if(!e.repeat)onTap();return;}
+  if(e.code!=='Space')return;e.preventDefault();toggle();});
 
-const APP_VER='v19';   // small build tag in the footer, to confirm updates reached the device
+const APP_VER='v20';   // small build tag in the footer, to confirm updates reached the device
 // storage self-check: warn only if the browser is actually blocking storage
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false;
