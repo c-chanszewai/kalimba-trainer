@@ -501,24 +501,18 @@ document.getElementById('restDn').onclick=()=>setRest(S.rest-1);
 
 // edit overlay
 const edit=document.getElementById('edit'),editText=document.getElementById('editText');
-document.getElementById('editBtn').onclick=()=>{editText.value=Object.entries(LIBRARY).map(([k,v])=>'#'+k+'\n'+v).join('\n\n');edit.classList.add('show');};
+// Edit tab uses the same format as Export/Import, including @rhythm lines — so Load keeps rhythms
+document.getElementById('editBtn').onclick=()=>{editText.value=songbookText();edit.classList.add('show');};
 document.getElementById('editCancel').onclick=()=>edit.classList.remove('show');
 document.getElementById('editSave').onclick=()=>{
-  const blocks=editText.value.split(/\n\s*\n(?=#)/);let firstName=null;
-  S.tapRhythm={};
-  Object.keys(LIBRARY).forEach(k=>delete LIBRARY[k]);
-  blocks.forEach(bl=>{const lines=bl.split('\n');let name='Untitled';let start=0;
-    if(lines[0].trim().startsWith('#')){name=lines[0].replace(/^#\s*/,'').trim();start=1;}
-    LIBRARY[name]=lines.slice(start).join('\n').trim();if(!firstName)firstName=name;});
-  songSel.innerHTML='';Object.keys(LIBRARY).forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;songSel.appendChild(o);});
-  saveLibrary();saveRhythm();
-  songSel.value=firstName;loadSong(firstName);edit.classList.remove('show');};
+  if(!importTabs(editText.value,'Untitled',true)){alert('No songs found. Each song needs a "#Title" line, then lines of numbers.');return;}
+  edit.classList.remove('show');};
 document.getElementById('editRestore').onclick=()=>{
   Object.keys(LIBRARY).forEach(k=>delete LIBRARY[k]);Object.assign(LIBRARY,DEFAULTS);
   S.tapRhythm={};saveLibrary();saveRhythm();
   songSel.innerHTML='';Object.keys(LIBRARY).forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;songSel.appendChild(o);});
   const first=Object.keys(LIBRARY)[0];songSel.value=first;loadSong(first);
-  editText.value=Object.entries(LIBRARY).map(([k,v])=>'#'+k+'\n'+v).join('\n\n');};
+  editText.value=songbookText();};
 
 // import a .txt file of tabs. Replace mode mirrors the file (incl. deletions); merge just adds/updates.
 const importFile=document.getElementById('importFile');
@@ -528,7 +522,8 @@ importFile.onchange=()=>{const f=importFile.files&&importFile.files[0];if(!f)ret
   rd.onload=()=>{const text=rd.result;importFile.value='';
     const replace=confirm('Replace ALL songs with this file?\n\nOK = replace (mirror the file, including deletions)\nCancel = add / update only (keep your other songs)');
     const n=importTabs(text,f.name.replace(/\.[^.]+$/,''),replace);
-    if(!n)alert('No songs found in that file. Each song needs a "#Title" line, then lines of numbers.');};
+    if(!n)alert('No songs found in that file. Each song needs a "#Title" line, then lines of numbers.');
+    else alert('Imported '+n+' song'+(n>1?'s':'')+', '+importTabs.rhythms+' with a tapped rhythm.'+(importTabs.rhythms?'\nTurn on Tap rhythm to hear it.':''));};
   rd.readAsText(f);};
 function importTabs(text,fallbackName,replace){
   const blocks=String(text).replace(/\r/g,'').split(/\n\s*\n(?=#)/);const incoming={},incomingRhy={};let firstName=null;
@@ -546,6 +541,7 @@ function importTabs(text,fallbackName,replace){
   Object.assign(LIBRARY,incoming);
   if(replace)Object.keys(S.tapRhythm).forEach(k=>{if(!(k in LIBRARY))delete S.tapRhythm[k];});
   Object.assign(S.tapRhythm,incomingRhy);   // file's rhythms win; songs without one keep this device's rhythm
+  importTabs.rhythms=Object.keys(incomingRhy).length;
   saveRhythm();
   songSel.innerHTML='';Object.keys(LIBRARY).forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;songSel.appendChild(o);});
   saveLibrary();songSel.value=firstName;loadSong(firstName);saveState();
@@ -573,7 +569,7 @@ window.addEventListener('keydown',e=>{if(edit.classList.contains('show'))return;
   if(S.tapMode&&TAP_KEYS.includes(e.code)){e.preventDefault();if(!e.repeat)onTap(eventTime(e));return;}
   if(e.code!=='Space')return;e.preventDefault();toggle();});
 
-const APP_VER='v24';   // small build tag in the footer, to confirm updates reached the device
+const APP_VER='v25';   // small build tag in the footer, to confirm updates reached the device
 // storage self-check: warn only if the browser is actually blocking storage
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false;
