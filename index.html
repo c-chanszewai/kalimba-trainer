@@ -385,7 +385,13 @@ function play(){if(!S.beats.length)return;ensureAudio();if(audio.state==='suspen
   trigger(S.drill?Math.floor(S.head):(Math.floor(S.head)-start));
   raf=requestAnimationFrame(loop);}
 function stop(){S.playing=false;S.resting=false;document.getElementById('play').textContent='Play';document.getElementById('play').classList.remove('on');if(raf)cancelAnimationFrame(raf);}
-function toggle(){if(S.tapMode){if(S.capturing)return;tapToggle();return;}S.playing?stop():play();}
+// does the current song (or looped section) have any tapped notes?
+function hasRhythm(){const m=S.tapRhythm[S.songName];if(!Array.isArray(m))return false;
+  const sc=tapScopeRange();for(let i=sc.s;i<=sc.e;i++)if(m[i]!=null)return true;return false;}
+// Play uses your tapped rhythm whenever the song has one (chord drill keeps its own even playback)
+function toggle(){if(S.tapMode){if(S.capturing)return;tapToggle();return;}
+  if(S.playing){stop();return;}
+  if(!S.drill&&hasRhythm())tapPlay();else play();}
 
 // ================= tap-the-rhythm mode =================
 // One master duration array per song (index = note index). null = untapped -> plays at 1 beat.
@@ -569,7 +575,7 @@ window.addEventListener('keydown',e=>{if(edit.classList.contains('show'))return;
   if(S.tapMode&&TAP_KEYS.includes(e.code)){e.preventDefault();if(!e.repeat)onTap(eventTime(e));return;}
   if(e.code!=='Space')return;e.preventDefault();toggle();});
 
-const APP_VER='v25';   // small build tag in the footer, to confirm updates reached the device
+const APP_VER='v26';   // small build tag in the footer, to confirm updates reached the device
 // storage self-check: warn only if the browser is actually blocking storage
 function storageHealth(){const el=document.getElementById('storageNote');if(!el)return;
   let ok=false;
